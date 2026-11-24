@@ -1,5 +1,4 @@
-function AddressBox({address, onAddressChange, onAnalyze}) {
-
+function AddressBox({ address, onAddressChange, onAnalyze, loading }) {
   return (
     <div className="AddressBox">
       <input
@@ -10,7 +9,9 @@ function AddressBox({address, onAddressChange, onAnalyze}) {
         onChange={(e) => onAddressChange(e.target.value)}
       />
 
-      <button onClick={onAnalyze}>Analyze</button>
+      <button onClick={onAnalyze} disabled={loading}>
+        {loading ? "Analyzing" : "Analyze"}
+      </button>
     </div>
   );
 }
