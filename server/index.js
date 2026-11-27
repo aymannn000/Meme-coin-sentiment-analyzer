@@ -11,6 +11,9 @@ const client = new OpenAI({
 });
 const MODEL = "openai/gpt-oss-120b";
 const port = 3001;
+const VERDICTS = ["Avoid", "Watch", "Consider"];
+const RISK_LEVELS = ["High risk", "Medium risk", "Low risk"];
+const HORIZONS = ["Short-term trade", "Long-term hold", "None"];
 
 app.use(cors());
 app.use(express.json());
@@ -52,13 +55,46 @@ Rules:
       temperature: 0.2,
     });
     const raw = completion.choices[0].message.content;
+    console.log("AI reply:", raw);
+
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1) {
+      console.log("No JSON found in reply:", raw);
+      return res.status(502).json({ error: "AI reply had no JSON" });
+    }
+    const piece = raw.slice(start, end + 1);
+
     let data;
     try {
-      data = JSON.parse();
+      data = JSON.parse(piece);
     } catch (parseError) {
       console.log("Bad reply:", raw);
       return res.status(502).json({ error: "AI reply was not valid JSON" });
     }
+
+    if (
+      !VERDICTS.includes(data.verdict) ||
+      !RISK_LEVELS.includes(data.riskLevel) ||
+      !HORIZONS.includes(data.horizon) ||
+      typeof data.reason !== "string" ||
+      !data.reason.trim()
+    ) {
+      console.log("Invalid reply:", data);
+      return res.status(502).json({ error: "AI reply had unexpected values" });
+    }
+
+    if (data.verdict === "Avoid" && data.horizon !== "None") {
+      console.log("Fixed horizon for Avoid verdict");
+      data.horizon = "None";
+    }
+
+    res.json({
+      verdict: data.verdict,
+      riskLevel: data.riskLevel,
+      horizon: data.horizon,
+      reason: data.reason,
+    });
   } catch (error) {
     console.log("chat failed:", error);
     res.status(500).json({ error: "could not load chat" });
