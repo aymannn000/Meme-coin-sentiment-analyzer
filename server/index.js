@@ -23,6 +23,7 @@ app.post("/analyze", async (req, res) => {
     return res.status(400).json({ error: "Address is Required!" });
   }
   console.log("Analyze request for:", address);
+
   const systemPrompt = `You are a careful crypto risk analyst. You judge a token using only the evidence provided, and you never invent facts.
 
 Answer with only a JSON object and no other text, using exactly these four keys:
@@ -38,15 +39,30 @@ Rules:
 - If the evidence is missing or too thin to judge, choose "Watch" and say so in the reason.`;
   const userMessage = JSON.stringify({
     address: address.trim(),
-    evidence: evidence
+    evidence: evidence,
   });
 
-  res.json({
-    verdict: "Avoid",
-    riskLevel: "High risk",
-    horizon: "None",
-    reason: "Dev wallet holds 31% of the supply and liquidity is not locked.",
-  });
+  try {
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.2,
+    });
+    const raw = completion.choices[0].message.content;
+    let data;
+    try {
+      data = JSON.parse();
+    } catch (parseError) {
+      console.log("Bad reply:", raw);
+      return res.status(502).json({ error: "AI reply was not valid JSON" });
+    }
+  } catch (error) {
+    console.log("chat failed:", error);
+    res.status(500).json({ error: "could not load chat" });
+  }
 });
 
 app.listen(port, () => {
